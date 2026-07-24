@@ -1,6 +1,6 @@
 [package]
 name = "lunis-display-fixer"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Sim Racing Display Fixer - keep your triple screens (or any display) at the resolution and refresh you want."
 authors = ["Lunis"]

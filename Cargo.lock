@@ -1988,7 +1988,7 @@ dependencies = [
 
 [[package]]
 name = "lunis-display-fixer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "lunis-display-core",
  "serde",
