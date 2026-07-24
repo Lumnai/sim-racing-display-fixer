@@ -1,0 +1,39 @@
+name: release
+
+# Push a tag like v0.1.0 to build, sign, publish a GitHub Release, and emit latest.json
+# (the auto-updater manifest). Requires two repo secrets:
+#   TAURI_SIGNING_PRIVATE_KEY           - contents of the minisign private key file
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  - the key's password (empty string if none)
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Build, sign, and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Sim Racing Display Fixer ${{ github.ref_name }}"
+          releaseBody: "Download the setup .exe below to install. Auto-update handles every version after."
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true

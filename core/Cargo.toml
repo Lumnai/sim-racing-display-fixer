@@ -1,0 +1,20 @@
+[package]
+name = "lunis-display-core"
+version = "0.1.0"
+edition = "2021"
+description = "Native display heal engine for Lunis Display Fixer (CCD detect + adapter-restart)."
+
+[lib]
+name = "lunis_display_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "displaycore"
+path = "src/main.rs"
+
+[dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Devices_Display",
+    "Win32_Devices_DeviceAndDriverInstallation",
+] }

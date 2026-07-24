@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunis Display Fixer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="logo"></div>
+        <div>
+          <h1>Sim Racing Display Fixer</h1>
+          <p class="sub">Keeps your screens at the resolution you want</p>
+        </div>
+      </header>
+
+      <div id="updateBanner" class="banner hidden">
+        <span id="updateText">Update available</span>
+        <button id="updateBtn" class="btn primary sm">Update now</button>
+      </div>
+
+      <section class="card status">
+        <div class="statusRow">
+          <div>
+            <span id="bigWidth" class="big">-</span>
+            <div class="unit">px wide</div>
+          </div>
+          <div id="chip" class="chip neutral">checking</div>
+        </div>
+        <p id="summary" class="summary">Reading your display...</p>
+        <p id="adapters" class="muted small"></p>
+      </section>
+
+      <section id="onboarding" class="card hidden">
+        <h2>Set it once</h2>
+        <p>
+          Get your display looking exactly how you want it (resolution, refresh,
+          layout). Then save it as your target and the fixer keeps it that way,
+          on every setup.
+        </p>
+        <button id="captureBtn" class="btn primary">Use my current display</button>
+      </section>
+
+      <section id="dashboard" class="card hidden">
+        <div class="actions">
+          <button id="fixBtn" class="btn primary">Fix now</button>
+          <button id="recaptureBtn" class="btn ghost">Update saved display</button>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="autofix" />
+          <span>Auto-fix at startup
+            <span class="muted small">(keeps it correct after every reboot)</span>
+          </span>
+        </label>
+        <button id="checkUpdateBtn" class="btn link">Check for updates</button>
+      </section>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <div id="busy" class="overlay hidden">
+      <div class="spinner"></div>
+      <p id="busyText">Working...</p>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
