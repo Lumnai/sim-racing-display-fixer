@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <!--
-    Declare per-monitor DPI awareness. Without this Windows treats the process as DPI-unaware and
-    bitmap-stretches the window whenever it moves to a screen with different scaling, which both
-    changes its size and makes it look blurry. With it, the window renders natively on every
-    screen and keeps the same apparent size.
+    SYSTEM DPI awareness, deliberately not PerMonitorV2.
+
+    Per-monitor awareness makes Windows send WM_DPICHANGED as the window crosses to a screen with
+    different scaling, and Slint mishandles the rescale: the window jumps size and the content is
+    drawn at the wrong scale inside it. That is slint-ui/slint#11073 (open, marked upstream) and
+    rust-windowing/winit#3040 - not something this app can fix.
+
+    With system awareness the window is never asked to rescale. It keeps one size and Windows
+    composites it for the other screen, so dragging between monitors is stable. The cost is that
+    it can look slightly soft on a monitor whose scaling differs from the system setting, which is
+    a far better trade than the window resizing and rendering incorrectly.
   -->
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
-      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
-      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
     </windowsSettings>
   </application>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

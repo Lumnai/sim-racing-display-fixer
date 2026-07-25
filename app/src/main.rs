@@ -87,7 +87,6 @@ impl Sel {
 fn run_gui(hidden: bool) {
     let ui = AppWindow::new().expect("failed to create window");
     std::thread::spawn(set_dark_titlebar);
-    std::thread::spawn(pin_size_across_monitors);
 
     // Started with Windows: stay out of the way entirely - no window, no taskbar button, just the
     // tray icon. Minimising was not enough, the window still appeared and took the taskbar slot.
@@ -810,47 +809,6 @@ fn minimize_self() {
     }
     // Nothing needs to stay resident while hidden - hand the pages back.
     trim_memory();
-}
-
-/// Stop the window resizing when it crosses to a monitor with different scaling.
-///
-/// With per-monitor DPI awareness Windows sends WM_DPICHANGED as the window moves between screens.
-/// The default handling resizes the window and makes the renderer reallocate its buffer, which on a
-/// frameless window shows up as a black or see-through flash mid-drag. Swallowing the message keeps
-/// the window exactly the size it already is: no resize, no reallocation, no flicker.
-fn pin_size_across_monitors() {
-    use std::sync::atomic::{AtomicIsize, Ordering};
-    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CallWindowProcW, SetWindowLongPtrW, GWLP_WNDPROC, WNDPROC,
-    };
-
-    const WM_DPICHANGED: u32 = 0x02E0;
-    static OLD_PROC: AtomicIsize = AtomicIsize::new(0);
-
-    unsafe extern "system" fn proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
-        if msg == WM_DPICHANGED {
-            // Handled: keep our current size and position.
-            return 0;
-        }
-        let old = OLD_PROC.load(Ordering::SeqCst);
-        let old: WNDPROC = std::mem::transmute(old);
-        CallWindowProcW(old, hwnd, msg, w, l)
-    }
-
-    for _ in 0..40 {
-        let hwnd = any_self_hwnd();
-        if !hwnd.is_null() {
-            unsafe {
-                let prev = SetWindowLongPtrW(hwnd, GWLP_WNDPROC, proc as isize);
-                if prev != 0 {
-                    OLD_PROC.store(prev, Ordering::SeqCst);
-                }
-            }
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
 }
 
 /// Exit cleanly: drop the tray icon first so it does not linger as a ghost.
