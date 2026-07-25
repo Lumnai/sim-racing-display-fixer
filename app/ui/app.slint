@@ -248,6 +248,7 @@ export component AppWindow inherits Window {
     in property <int> revert-secs: 12;
     in property <bool> update-available: false;
     in property <string> update-version: "";
+    in property <string> app-version: "";
 
     callback close-app();
     callback minimize-app();
@@ -446,6 +447,30 @@ export component AppWindow inherits Window {
                     }
                 }
                 Rectangle { horizontal-stretch: 1; }
+                Rectangle {
+                    width: 42px;
+                    height: 18px;
+                    Text {
+                        text: "v" + root.app-version;
+                        color: #a5a2a0;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        width: 100%;
+                    }
+                }
+                Rectangle {
+                    width: 16px;
+                    height: 18px;
+                    Text {
+                        text: "|";
+                        color: #4f4d4b;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        width: 100%;
+                    }
+                }
                 Rectangle {
                     width: 88px;
                     height: 18px;

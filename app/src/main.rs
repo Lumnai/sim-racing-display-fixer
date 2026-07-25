@@ -120,6 +120,8 @@ fn run_gui(hidden: bool) {
     refresh(&ui, &sel.lock().unwrap());
     refresh_toggles(&ui);
 
+    ui.set_app_version(env!("CARGO_PKG_VERSION").into());
+
     // window chrome
     ui.on_close_app(|| std::process::exit(0));
     ui.on_minimize_app(minimize_self);
