@@ -818,15 +818,27 @@ fn open_url(url: &str) {
 fn set_dark_titlebar() {
     use windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute;
     const DWMWA_USE_IMMERSIVE_DARK_MODE: u32 = 20;
+    // Windows 11: round the real window corners. Painting rounded corners ourselves would not
+    // work - the OS still clips the frame square, leaving hard edges behind our rounding.
+    const DWMWA_WINDOW_CORNER_PREFERENCE: u32 = 33;
+    const DWMWCP_ROUND: i32 = 2;
     for _ in 0..30 {
         let hwnd = self_hwnd();
         if !hwnd.is_null() {
-            let on: i32 = 1;
             unsafe {
+                let on: i32 = 1;
                 DwmSetWindowAttribute(
                     hwnd,
                     DWMWA_USE_IMMERSIVE_DARK_MODE,
                     &on as *const i32 as *const core::ffi::c_void,
+                    4,
+                );
+                // Ignored on Windows 10, which simply keeps square corners.
+                let round: i32 = DWMWCP_ROUND;
+                DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    &round as *const i32 as *const core::ffi::c_void,
                     4,
                 );
             }

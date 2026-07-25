@@ -274,7 +274,10 @@ export component AppWindow inherits Window {
     default-font-size: 14px;
     preferred-width: 430px;
     preferred-height: root.custom-mode ? 452px : 400px;
-    min-width: 430px;
+    // Deliberately low floors: the minimum is in logical pixels, so on a higher-DPI monitor a
+    // tight minimum becomes physically large and the window can no longer be dragged back down.
+    min-width: 340px;
+    min-height: 300px;
 
     VerticalLayout {
         padding: 0px;
@@ -312,28 +315,6 @@ export component AppWindow inherits Window {
             padding-right: 20px;
             padding-bottom: 16px;
             spacing: 0px;
-
-            if root.update-available: Rectangle {
-                height: 46px;
-                border-radius: 10px;
-                background: #2f2418;
-                HorizontalLayout {
-                    padding-left: 14px;
-                    padding-right: 8px;
-                    spacing: 10px;
-                    Text {
-                        text: "Update available: v" + root.update-version;
-                        color: #f3f0f1;
-                        font-size: 12.5px;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                    }
-                    VerticalLayout {
-                        alignment: center;
-                        Btn { label: "Update"; primary: true; height: 32px; clicked => { root.install-update(); } }
-                    }
-                }
-            }
 
             Text {
                 text: "DISPLAY";
@@ -426,6 +407,30 @@ export component AppWindow inherits Window {
             }
 
             Rectangle { vertical-stretch: 1; min-height: 6px; }
+
+            // Update notice sits just above the footer so it never pushes the controls around.
+            if root.update-available: Rectangle {
+                height: 46px;
+                border-radius: 10px;
+                background: #2f2418;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 8px;
+                    spacing: 10px;
+                    Text {
+                        text: "Update available: v" + root.update-version;
+                        color: #f3f0f1;
+                        font-size: 12.5px;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Btn { label: "Update"; primary: true; height: 32px; clicked => { root.install-update(); } }
+                    }
+                }
+            }
+            if root.update-available: Rectangle { height: 12px; }
 
             Rectangle { height: 1px; background: #ffffff14; }
             HorizontalLayout {
