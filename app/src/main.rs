@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::rc::Rc;
 
+mod http;
 mod updater;
 
 use lunis_display_core::{ccd, engine, modes, profile};
@@ -130,13 +131,16 @@ fn run_gui(hidden: bool) {
     {
         let w = ui.as_weak();
         std::thread::spawn(move || {
-            if let Ok(Some(a)) = updater::check() {
+            if let Ok(Some(a)) = updater::check_if_due() {
                 let v = a.version.clone();
                 let _ = w.upgrade_in_event_loop(move |ui| {
                     ui.set_update_version(v.into());
                     ui.set_update_available(true);
                 });
             }
+            // The TLS stack and root certificates are only needed for this one request;
+            // give the pages back rather than holding them for the life of the window.
+            trim_memory();
         });
     }
 
@@ -374,6 +378,14 @@ fn run_gui(hidden: bool) {
             ui.set_hide_on_startup(hide_on_startup_enabled());
             resync(&ui, &sel);
         });
+    }
+
+    // Hand back pages that startup touched, then keep trimming periodically so the footprint
+    // does not creep while the window sits open.
+    {
+        let trim = Timer::default();
+        trim.start(TimerMode::Repeated, std::time::Duration::from_secs(15), trim_memory);
+        std::mem::forget(trim);
     }
 
     ui.run().expect("event loop failed");
@@ -718,6 +730,17 @@ fn minimize_self() {
     let hwnd = self_hwnd();
     if !hwnd.is_null() {
         unsafe { ShowWindow(hwnd, SW_MINIMIZE) };
+    }
+    // Nothing needs to stay resident while hidden - hand the pages back.
+    trim_memory();
+}
+
+/// Release resident pages back to Windows. Anything still needed is faulted back in on demand;
+/// this is what keeps a background utility from sitting on tens of MB it is not using.
+fn trim_memory() {
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
+    unsafe {
+        SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
     }
 }
 

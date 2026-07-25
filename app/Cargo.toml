@@ -1,6 +1,6 @@
 [package]
 name = "sim-racing-display-fixer"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Sim Racing Display Fixer - keep your screens at the resolution and refresh you want."
 
@@ -22,8 +22,7 @@ slint = { version = "1", default-features = false, features = [
     "software-renderer-systemfonts",
 ] }
 lunis-display-core = { path = "../core" }
-# Updater: tiny TLS client + JSON + signature verification. No async runtime.
-ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+# Updater. HTTPS goes through the OS (WinHTTP) rather than bundling rustls + a root store.
 serde_json = "1"
 minisign-verify = "0.2"
 windows-sys = { version = "0.59", features = [
@@ -35,4 +34,5 @@ windows-sys = { version = "0.59", features = [
     "Win32_System_Registry",
     "Win32_Security",
     "Win32_Graphics_Dwm",
+    "Win32_Networking_WinHttp",
 ] }

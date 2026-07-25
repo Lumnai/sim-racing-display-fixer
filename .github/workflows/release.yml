@@ -40,7 +40,12 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force target/packaged | Out-Null
-          & "$env:ProgramFiles(x86)\NSIS\makensis.exe" /DVERSION=${{ steps.ver.outputs.version }} packaging/installer.nsi
+          # NOTE: the braces are required - "$env:ProgramFiles(x86)" parses as ProgramFiles
+          # followed by a literal "(x86)" and silently yields the wrong path.
+          $nsis = Join-Path ${env:ProgramFiles(x86)} "NSIS\makensis.exe"
+          if (-not (Test-Path $nsis)) { $nsis = Join-Path $env:ProgramFiles "NSIS\makensis.exe" }
+          Write-Host "using $nsis"
+          & $nsis /DVERSION=${{ steps.ver.outputs.version }} packaging/installer.nsi
 
       - name: Sign installer
         shell: pwsh
