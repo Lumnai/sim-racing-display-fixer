@@ -1,27 +1,57 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <!--
-    SYSTEM DPI awareness, deliberately not PerMonitorV2.
+    SYSTEM DPI awareness, deliberately not PerMonitorV2. Do not "fix" this without reading the
+    whole comment - three per-monitor builds have already been shipped and rejected.
 
-    Per-monitor awareness makes Windows send WM_DPICHANGED as the window crosses to a screen with
-    different scaling, and Slint mishandles the rescale: the window ends up the wrong size and the
-    content is drawn at the wrong scale inside it. That is slint-ui/slint#11073 (open, marked
-    upstream) and rust-windowing/winit#3040.
+    WHY PER-MONITOR CANNOT WORK HERE (verified against slint 1.17.1 / winit 0.30.13 sources):
 
-    Two attempts to keep per-monitor awareness and correct for the bug both failed the same way,
-    and both are worth remembering so they are not tried a third time:
-      - v1.0.4 swallowed WM_DPICHANGED. The frame changed while the renderer stayed at the old
-        scale, so the content was drawn at the wrong size inside the window.
-      - v1.0.6 let the message through and then forced the window to the rect Windows supplies.
-        That corrects the frame but not Slint's internal size, so the layout desynced exactly as
-        in v1.0.4: content offset and clipped past the right edge.
-    The lesson is that the frame and the renderer have to be corrected together, through Slint's
-    own API, not behind its back at the Win32 level.
+    1. Slint never resizes on a scale-factor change. Its winit backend dispatches the event and
+       throws away winit's inner_size_writer, with a TODO saying as much
+       (i-slint-backend-winit/event_loop.rs:490-501). The handler only calls set_scale_factor
+       (i-slint-core/api.rs:734-737), unlike the Resized path next to it, which also updates the
+       window-item geometry and the renderer. So after a DPI change the scale factor is NEW while
+       the cached physical size and layout geometry are OLD.
 
-    With system awareness the window is never asked to rescale. It keeps one size and Windows
-    composites it for the other screen, so dragging between monitors is stable. The cost is that
-    it looks slightly soft on a monitor whose scaling differs from the system setting, which is a
-    far better trade than the window resizing and rendering incorrectly.
+    2. That desync is fatal for a software renderer specifically. The scene is sized from the new
+       scale factor (i-slint-renderer-software/lib.rs:568-583) while the softbuffer surface is
+       sized from the stale physical size (backend-winit/renderer/sw.rs:86,103-105). Softbuffer
+       blits 1:1 on Win32 and never stretches, so the two disagreeing can only show up as content
+       drawn at the wrong size and clipped. Only an OS-driven WM_SIZE reconciles the two, because
+       resize_event (winitwindowadapter.rs:823-855) is the single place the cached size is written.
+
+    3. Our own frameless drag makes it worse. drag_self() calls a blocking SendMessageW with
+       WM_NCLBUTTONDOWN from inside a Slint callback, which holds winit's event handler for the
+       whole modal move loop. Dragging across a monitor boundary therefore BUFFERS the DPI event:
+       Slint gets nothing for the entire drag and only reconciles on mouse-up. Since dragging
+       between monitors is the exact action in question, this alone rules the approach out.
+
+    4. winit 0.30.13 also nudges the window back onto the old monitor mid-drag, because
+       MonitorFromWindow still reports the old one (winit windows/event_loop.rs:2349), growing the
+       window a step per bounce. Fixed upstream by winit PR #4341 (merged 2025-08-24) but released
+       only in 0.31.0-beta; the 0.30.x backport PR #4637 was closed unmerged. Slint pins
+       winit ^0.30.2, so there is no upgrade path at any layer. slint-ui/slint#11073 is open and
+       labelled upstream; slint 1.17.1 is the newest release and still contains the TODO above.
+
+    WHAT WAS ACTUALLY TRIED, all rejected in the field:
+      - v1.0.2/v1.0.3: plain PerMonitorV2, no app-side code at all. Window changed size oddly when
+        dragged between screens, and flashed black or transparent.
+      - v1.0.4: swallowed WM_DPICHANGED. This deletes winit's corrective SetWindowPos and so
+        deletes the only WM_SIZE, making the desync permanent: content drawn at the wrong scale.
+      - v1.0.6: let the message through, then forced the frame to the rect Windows supplies. A
+        third SetWindowPos on top of winit's, which corrects the HWND without reconciling Slint's
+        cached size: content offset and clipped past the right edge.
+
+    With system awareness the window is never asked to rescale, so none of the above is reachable.
+    Windows composites it for the other screen instead, which costs a little sharpness on a monitor
+    whose scaling differs from the system setting. Setting both monitors to the same Windows
+    scaling removes even that. Revisit only once slint#11073 is fixed upstream AND the drag in
+    point 3 no longer blocks winit's event loop.
+
+    Two things that look like levers and are not: SLINT_SCALE_FACTOR is honoured
+    (winitwindowadapter.rs:461-467) but freezes the physical size, and gdiScaling applies only to
+    DPI-unaware processes and cannot scale an application-constructed bitmap, which is exactly what
+    softbuffer hands to Windows.
   -->
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
