@@ -3995,7 +3995,7 @@ dependencies = [
 
 [[package]]
 name = "sim-racing-display-fixer"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "embed-resource",
  "lunis-display-core",
