@@ -114,7 +114,15 @@ unsafe fn restart_inner(
         }
     }
     log("adapter(s) re-enabled");
-    std::thread::sleep(std::time::Duration::from_millis(15000));
+    // Wait only as long as the display actually needs. A flat sleep here used to add ~15s to
+    // every recovery; most rigs are back in a few seconds.
+    for _ in 0..30 {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        if crate::modes::current().is_some_and(|m| m.width > 0) {
+            break;
+        }
+    }
+    std::thread::sleep(std::time::Duration::from_millis(1500));
 
     match disable_err {
         Some(e) => Err(e),

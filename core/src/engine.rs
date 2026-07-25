@@ -100,10 +100,18 @@ pub fn fix(profile_path: &Path, mut log: impl FnMut(&str)) -> FixResult {
     if let Err(e) = adapter::restart(filter, &mut log) {
         log(&format!("adapter restart error: {e}"));
     }
-    std::thread::sleep(std::time::Duration::from_millis(2000));
-    let rc2 = ccd::apply(&target);
+    // The wide mode can take a moment to be offered again after the links re-train, so retry
+    // briefly instead of giving up on the first attempt.
+    let mut rc2 = -1;
+    for attempt in 0..8 {
+        rc2 = ccd::apply(&target);
+        std::thread::sleep(std::time::Duration::from_millis(800));
+        if matches_target(&target) {
+            log(&format!("restored after {} re-apply attempt(s)", attempt + 1));
+            break;
+        }
+    }
     log(&format!("post-restart SetDisplayConfig -> {rc2}"));
-    std::thread::sleep(std::time::Duration::from_millis(1500));
 
     if matches_target(&target) {
         FixResult {

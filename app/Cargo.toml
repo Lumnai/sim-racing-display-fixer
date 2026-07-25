@@ -1,0 +1,38 @@
+[package]
+name = "sim-racing-display-fixer"
+version = "0.2.0"
+edition = "2021"
+description = "Sim Racing Display Fixer - keep your screens at the resolution and refresh you want."
+
+[[bin]]
+name = "sim-display-fixer"
+path = "src/main.rs"
+
+[build-dependencies]
+slint-build = "1"
+embed-resource = "3"
+
+[dependencies]
+# Software renderer (CPU) + winit only - no GPU/Chromium stack, minimal RAM.
+slint = { version = "1", default-features = false, features = [
+    "std",
+    "compat-1-2",
+    "backend-winit",
+    "renderer-software",
+    "software-renderer-systemfonts",
+] }
+lunis-display-core = { path = "../core" }
+# Updater: tiny TLS client + JSON + signature verification. No async runtime.
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+serde_json = "1"
+minisign-verify = "0.2"
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_Threading",
+    "Win32_System_Registry",
+    "Win32_Security",
+    "Win32_Graphics_Dwm",
+] }

@@ -70,6 +70,16 @@ on every boot). Open the app any time to check status, re-capture your target, f
 Validated on: an **NVIDIA RTX 5070 Ti (driver 610.74)** triple-4K Surround rig at 11520x2160 @ 120 Hz,
 and on an **AMD Radeon 880M** laptop - two very different setups, same profile-based fix.
 
+## License and commercial use
+
+Licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). It is **free for personal,
+noncommercial use**.
+
+**Commercial use is not permitted without a license from us.** That includes any use by or for a
+company, organisation, venue, or business, and it includes an individual using it for their
+employer's benefit. The restriction applies to modified versions too. If you want to use this
+commercially, reach out first: **contact@lunis.live**.
+
 ## Install
 
 Download the latest setup `.exe` from the [Releases](../../releases) page and run it. After that the

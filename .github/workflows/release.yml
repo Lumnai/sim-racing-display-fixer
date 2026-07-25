@@ -1,9 +1,10 @@
 name: release
 
-# Push a tag like v0.1.0 to build, sign, publish a GitHub Release, and emit latest.json
-# (the auto-updater manifest). Requires two repo secrets:
-#   TAURI_SIGNING_PRIVATE_KEY           - contents of the minisign private key file
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  - the key's password (empty string if none)
+# Push a tag like v0.2.0 to build the app, package the NSIS installer, sign it, publish a GitHub
+# Release, and emit latest.json (the manifest the in-app updater polls).
+#
+# Requires one repo secret:
+#   TAURI_SIGNING_PRIVATE_KEY  - contents of the minisign private key file (no password)
 
 on:
   push:
@@ -24,16 +25,61 @@ jobs:
         with:
           workspaces: ". -> target"
 
-      - name: Build, sign, and publish
-        uses: tauri-apps/tauri-action@v0
+      - name: Version from tag
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build app
+        run: cargo build -p sim-racing-display-fixer --release
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Package installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force target/packaged | Out-Null
+          & "$env:ProgramFiles(x86)\NSIS\makensis.exe" /DVERSION=${{ steps.ver.outputs.version }} packaging/installer.nsi
+
+      - name: Sign installer
+        shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          cargo install tauri-cli --version "^2.0.0" --locked
+          $keyFile = Join-Path $env:RUNNER_TEMP "signing.key"
+          Set-Content -Path $keyFile -Value $env:KEY -NoNewline
+          cargo tauri signer sign -f $keyFile -p "" "target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe"
+          Remove-Item $keyFile -Force
+
+      - name: Build latest.json
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $setup = "SimDisplayFixer-$v-setup.exe"
+          $sig = Get-Content "target/packaged/$setup.sig" -Raw
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$setup"
+          $manifest = [ordered]@{
+            version   = $v
+            notes     = "Sim Display Fixer $v"
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{ signature = $sig.Trim(); url = $url }
+            }
+          }
+          $manifest | ConvertTo-Json -Depth 6 | Set-Content "target/packaged/latest.json" -Encoding utf8
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Sim Racing Display Fixer ${{ github.ref_name }}"
-          releaseBody: "Download the setup .exe below to install. Auto-update handles every version after."
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: true
+          tag_name: ${{ github.ref_name }}
+          name: Sim Display Fixer ${{ github.ref_name }}
+          body: |
+            Download the setup .exe below to install. The app updates itself from then on.
+
+            Free for personal use. Commercial use requires a license: contact@lunis.live
+          files: |
+            target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe
+            target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe.sig
+            target/packaged/latest.json

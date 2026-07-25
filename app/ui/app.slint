@@ -1,0 +1,521 @@
+import { ScrollView } from "std-widgets.slint";
+
+// Palette: bg #20201f · text #f3f0f1 · surface/selected #343433 · accent #fd6010
+
+component WinBtn inherits Rectangle {
+    in property <bool> is-close: false;
+    callback clicked();
+    width: 34px;
+    height: 28px;
+    border-radius: 7px;
+    background: t.has-hover ? (root.is-close ? #e0431f : #ffffff14) : transparent;
+    animate background { duration: 110ms; }
+    if !root.is-close: Rectangle {
+        width: 11px;
+        height: 1.5px;
+        background: #f3f0f1;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+    if root.is-close: Path {
+        width: 11px;
+        height: 11px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        viewbox-width: 11;
+        viewbox-height: 11;
+        stroke: #f3f0f1;
+        stroke-width: 1.4px;
+        MoveTo { x: 0.5; y: 0.5; }
+        LineTo { x: 10.5; y: 10.5; }
+        MoveTo { x: 10.5; y: 0.5; }
+        LineTo { x: 0.5; y: 10.5; }
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component Btn inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> btn-enabled: true;
+    callback clicked();
+    height: 40px;
+    border-radius: 10px;
+    background: root.primary
+        ? (root.btn-enabled ? (t.has-hover ? #ff7526 : #fd6010) : #2b2b2a)
+        : (root.btn-enabled ? (t.has-hover ? #3d3d3c : #343433) : #2b2b2a);
+    animate background { duration: 110ms; }
+    HorizontalLayout {
+        alignment: center;
+        padding-left: 18px;
+        padding-right: 18px;
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 13.5px;
+            font-weight: root.primary ? 600 : 500;
+            color: !root.btn-enabled ? #6e6c69 : (root.primary ? #1a0d06 : #f3f0f1);
+        }
+    }
+    t := TouchArea {
+        mouse-cursor: root.btn-enabled ? pointer : default;
+        clicked => { if (root.btn-enabled) { root.clicked(); } }
+    }
+}
+
+component Chevron inherits Path {
+    width: 11px;
+    height: 7px;
+    viewbox-width: 11;
+    viewbox-height: 7;
+    stroke: #a5a2a0;
+    stroke-width: 1.5px;
+    MoveTo { x: 0.8; y: 1.6; }
+    LineTo { x: 5.5; y: 5.6; }
+    LineTo { x: 10.2; y: 1.6; }
+}
+
+component Dropdown inherits Rectangle {
+    in property <[string]> options;
+    in property <string> current;
+    callback selected(int);
+    height: 40px;
+    border-radius: 10px;
+    background: t.has-hover ? #3d3d3c : #343433;
+    animate background { duration: 110ms; }
+    HorizontalLayout {
+        padding-left: 13px;
+        padding-right: 12px;
+        spacing: 6px;
+        Text {
+            text: root.current;
+            color: #f3f0f1;
+            font-size: 13.5px;
+            font-weight: 500;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        VerticalLayout {
+            alignment: center;
+            Chevron {}
+        }
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { pop.show(); }
+    }
+    pop := PopupWindow {
+        x: 0;
+        y: root.height + 5px;
+        width: root.width;
+        height: min(root.options.length * 33px + 12px, 260px);
+        Rectangle {
+            background: #2a2a29;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: #ffffff26;
+            ScrollView {
+                x: 6px;
+                y: 6px;
+                width: parent.width - 12px;
+                height: parent.height - 12px;
+                viewport-height: root.options.length * 33px;
+                VerticalLayout {
+                    spacing: 1px;
+                    for opt[i] in root.options: Rectangle {
+                        height: 32px;
+                        border-radius: 7px;
+                        background: it.has-hover ? #3d3d3c : transparent;
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            Text {
+                                text: opt;
+                                color: #f3f0f1;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
+                        }
+                        it := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.selected(i); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component NumField inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> value;
+    callback edited();
+    height: 40px;
+    border-radius: 10px;
+    background: #343433;
+    border-width: 1px;
+    border-color: ti.has-focus ? #fd6010 : transparent;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 20px;
+                if root.value == "": Text {
+                    text: root.placeholder;
+                    color: #6e6c69;
+                    font-size: 13.5px;
+                    vertical-alignment: center;
+                }
+                ti := TextInput {
+                    text <=> root.value;
+                    color: #f3f0f1;
+                    font-size: 13.5px;
+                    input-type: number;
+                    single-line: true;
+                    vertical-alignment: center;
+                    edited => { root.edited(); }
+                }
+            }
+        }
+    }
+}
+
+component Toggle inherits Rectangle {
+    in property <string> label;
+    in property <bool> on: false;
+    callback toggled(bool);
+    height: 38px;
+    HorizontalLayout {
+        spacing: 10px;
+        Text {
+            text: root.label;
+            color: #f3f0f1;
+            font-size: 13.5px;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 42px;
+                height: 24px;
+                border-radius: 12px;
+                background: root.on ? #fd6010 : #4a4a48;
+                animate background { duration: 150ms; }
+                Rectangle {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 9px;
+                    background: #f3f0f1;
+                    y: 3px;
+                    x: root.on ? parent.width - self.width - 3px : 3px;
+                    animate x { duration: 150ms; easing: ease-out; }
+                }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.toggled(!root.on); }
+                }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    in property <string> current-mode: "-";
+    in property <string> status-text: "";
+    in property <color> status-color: #a5a2a0;
+    in property <[string]> res-options;
+    in property <[string]> hz-options;
+    in property <string> selected-res: "";
+    in property <string> selected-hz: "";
+    in property <bool> custom-mode: false;
+    in-out property <string> custom-w: "";
+    in-out property <string> custom-h: "";
+    in-out property <string> custom-hz: "";
+    in property <bool> can-apply: false;
+    in property <bool> show-fix: false;
+    in property <bool> autofix: false;
+    in property <bool> hide-on-startup: false;
+    in property <bool> busy: false;
+    in property <string> busy-text: "Working...";
+    in property <bool> confirming: false;
+    in property <int> revert-secs: 12;
+    in property <bool> update-available: false;
+    in property <string> update-version: "";
+
+    callback close-app();
+    callback minimize-app();
+    callback start-drag();
+    callback pick-res(int);
+    callback pick-hz(int);
+    callback custom-changed();
+    callback apply-mode();
+    callback fix();
+    callback set-autofix(bool);
+    callback set-hide-startup(bool);
+    callback keep-settings();
+    callback revert-settings();
+    callback open-site();
+    callback open-docs();
+    callback install-update();
+
+    title: "Sim Display Fixer";
+    no-frame: true;
+    background: #20201f;
+    default-font-family: "DM Sans";
+    default-font-size: 14px;
+    preferred-width: 430px;
+    preferred-height: root.custom-mode ? 452px : 400px;
+    min-width: 430px;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        // custom title bar (draggable)
+        Rectangle {
+            height: 46px;
+            drag := TouchArea {
+                mouse-cursor: default;
+                pointer-event(e) => {
+                    if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                        root.start-drag();
+                    }
+                }
+            }
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 10px;
+                // no title text: the window is small enough to speak for itself
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 2px;
+                        WinBtn { clicked => { root.minimize-app(); } }
+                        WinBtn { is-close: true; clicked => { root.close-app(); } }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 16px;
+            spacing: 0px;
+
+            if root.update-available: Rectangle {
+                height: 46px;
+                border-radius: 10px;
+                background: #2f2418;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 8px;
+                    spacing: 10px;
+                    Text {
+                        text: "Update available: v" + root.update-version;
+                        color: #f3f0f1;
+                        font-size: 12.5px;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Btn { label: "Update"; primary: true; height: 32px; clicked => { root.install-update(); } }
+                    }
+                }
+            }
+
+            Text {
+                text: "DISPLAY";
+                color: #a5a2a0;
+                font-size: 10.5px;
+                font-weight: 600;
+                letter-spacing: 1px;
+            }
+
+            // resolution + refresh, side by side
+            HorizontalLayout {
+                padding-top: 8px;
+                spacing: 8px;
+                Dropdown {
+                    horizontal-stretch: 3;
+                    options: root.res-options;
+                    current: root.selected-res;
+                    selected(i) => { root.pick-res(i); }
+                }
+                Dropdown {
+                    horizontal-stretch: 2;
+                    options: root.hz-options;
+                    current: root.selected-hz;
+                    selected(i) => { root.pick-hz(i); }
+                }
+            }
+
+            // custom entry
+            if root.custom-mode: HorizontalLayout {
+                padding-top: 8px;
+                spacing: 8px;
+                NumField {
+                    placeholder: "width";
+                    value <=> root.custom-w;
+                    horizontal-stretch: 1;
+                    edited => { root.custom-changed(); }
+                }
+                NumField {
+                    placeholder: "height";
+                    value <=> root.custom-h;
+                    horizontal-stretch: 1;
+                    edited => { root.custom-changed(); }
+                }
+                NumField {
+                    placeholder: "Hz";
+                    value <=> root.custom-hz;
+                    horizontal-stretch: 1;
+                    edited => { root.custom-changed(); }
+                }
+            }
+
+            HorizontalLayout {
+                padding-top: 8px;
+                spacing: 8px;
+                Btn {
+                    label: "Apply";
+                    primary: true;
+                    btn-enabled: root.can-apply;
+                    horizontal-stretch: 1;
+                    clicked => { root.apply-mode(); }
+                }
+                if root.show-fix: Btn {
+                    label: "Fix now";
+                    horizontal-stretch: 1;
+                    clicked => { root.fix(); }
+                }
+            }
+
+            HorizontalLayout {
+                padding-top: 12px;
+                Text {
+                    text: root.status-text;
+                    color: root.status-color;
+                    font-size: 12.5px;
+                    wrap: word-wrap;
+                }
+            }
+
+            Rectangle { height: 14px; }
+
+            Toggle {
+                label: "Auto-fix at startup";
+                on: root.autofix;
+                toggled(v) => { root.set-autofix(v); }
+            }
+            Toggle {
+                label: "Hide on startup";
+                on: root.hide-on-startup;
+                toggled(v) => { root.set-hide-startup(v); }
+            }
+
+            Rectangle { vertical-stretch: 1; min-height: 6px; }
+
+            Rectangle { height: 1px; background: #ffffff14; }
+            HorizontalLayout {
+                padding-top: 12px;
+                Rectangle {
+                    width: 44px;
+                    height: 18px;
+                    Image {
+                        source: @image-url("lunis-wordmark.svg");
+                        width: 40px;
+                        height: 14px;
+                        image-fit: contain;
+                        opacity: site.has-hover ? 1.0 : 0.55;
+                        y: 2px;
+                    }
+                    site := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.open-site(); }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Rectangle {
+                    width: 96px;
+                    height: 18px;
+                    Text {
+                        text: "Documentation";
+                        color: docs.has-hover ? #fd6010 : #a5a2a0;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        width: 100%;
+                    }
+                    docs := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.open-docs(); }
+                    }
+                }
+            }
+        }
+    }
+
+    // keep-or-revert safety net after a mode change
+    if root.confirming: Rectangle {
+        background: #20201ff7;
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            padding-left: 30px;
+            padding-right: 30px;
+            Text {
+                text: "Keep these display settings?";
+                horizontal-alignment: center;
+                color: #f3f0f1;
+                font-size: 15px;
+                font-weight: 600;
+            }
+            Text {
+                text: "Reverting in " + root.revert-secs + "s if you do not confirm.";
+                horizontal-alignment: center;
+                color: #a5a2a0;
+                font-size: 12.5px;
+            }
+            Rectangle { height: 8px; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 8px;
+                Btn { label: "Keep"; primary: true; clicked => { root.keep-settings(); } }
+                Btn { label: "Revert"; clicked => { root.revert-settings(); } }
+            }
+        }
+        TouchArea {}
+    }
+
+    if root.busy: Rectangle {
+        background: #20201ff2;
+        VerticalLayout {
+            alignment: center;
+            spacing: 12px;
+            Text {
+                text: root.busy-text;
+                horizontal-alignment: center;
+                color: #f3f0f1;
+                font-size: 15px;
+                font-weight: 500;
+            }
+            Text {
+                text: "the screens may go black for a few seconds";
+                horizontal-alignment: center;
+                color: #a5a2a0;
+                font-size: 12px;
+            }
+        }
+        TouchArea {}
+    }
+}

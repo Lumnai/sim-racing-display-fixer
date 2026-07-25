@@ -13,6 +13,7 @@
 pub mod adapter;
 pub mod ccd;
 pub mod engine;
+pub mod modes;
 pub mod profile;
 
 pub use engine::{fix, status, FixOutcome, FixResult, Status};
