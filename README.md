@@ -117,7 +117,7 @@ No Node, no web toolchain.
 
 ```bash
 cargo build -p sim-racing-display-fixer --release     # target/release/sim-display-fixer.exe
-makensis /DVERSION=1.0.0 packaging/installer.nsi      # target/packaged/*-setup.exe
+makensis /DVERSION=1.0.1 packaging/installer.nsi      # target/packaged/*-setup.exe
 ```
 
 The display engine is a separate crate with a headless CLI, handy for testing without the UI:

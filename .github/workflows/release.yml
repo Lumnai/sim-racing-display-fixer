@@ -52,10 +52,12 @@ jobs:
         env:
           KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          cargo install tauri-cli --version "^2.0.0" --locked
+          # Install the PREBUILT CLI from npm. Building it from source with `cargo install`
+          # took ten minutes per release, which was most of the total run time.
+          npm install -g @tauri-apps/cli
           $keyFile = Join-Path $env:RUNNER_TEMP "signing.key"
           Set-Content -Path $keyFile -Value $env:KEY -NoNewline
-          cargo tauri signer sign -f $keyFile -p "" "target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe"
+          tauri signer sign -f $keyFile -p "" "target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe"
           Remove-Item $keyFile -Force
 
       - name: Build latest.json

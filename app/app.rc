@@ -1,8 +1,8 @@
 1 ICON "icons/icon.ico"
 
 1 VERSIONINFO
-FILEVERSION 1,0,0,0
-PRODUCTVERSION 1,0,0,0
+FILEVERSION 1,0,1,0
+PRODUCTVERSION 1,0,1,0
 FILEOS 0x4L
 FILETYPE 0x1L
 BEGIN
@@ -12,12 +12,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Lunis"
             VALUE "FileDescription", "Sim Display Fixer"
-            VALUE "FileVersion", "1.0.0.0"
+            VALUE "FileVersion", "1.0.1.0"
             VALUE "InternalName", "Sim Display Fixer"
             VALUE "LegalCopyright", "Copyright (c) 2026 Lunis"
             VALUE "OriginalFilename", "sim-display-fixer.exe"
             VALUE "ProductName", "Sim Display Fixer"
-            VALUE "ProductVersion", "1.0.0.0"
+            VALUE "ProductVersion", "1.0.1.0"
         END
     END
     BLOCK "VarFileInfo"
