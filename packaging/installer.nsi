@@ -7,7 +7,7 @@ Unicode true
 !include "FileFunc.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.0.1"
+  !define VERSION "1.0.2"
 !endif
 
 Name "Sim Display Fixer"
@@ -82,6 +82,11 @@ Section "Install"
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" "$0"
+
+  ; A silent install is an in-app update: bring the app back up afterwards, since the finish page
+  ; (which normally offers that) never runs in silent mode.
+  IfSilent 0 +2
+    Exec '"$INSTDIR\sim-display-fixer.exe"'
 SectionEnd
 
 Section "Uninstall"

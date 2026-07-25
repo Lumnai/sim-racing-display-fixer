@@ -129,21 +129,33 @@ fn run_gui(hidden: bool) {
     ui.on_open_site(|| open_url(SITE_URL));
     ui.on_open_docs(|| open_url(DOCS_URL));
 
-    // Check for a newer release in the background so the window never blocks on the network.
-    {
+    // Watch for new releases while the window is open: once now, then every five minutes.
+    // A hidden startup launch skips this entirely - nobody can see the banner, so there is no
+    // reason to hit the network (or hold the network stack in memory) at every login.
+    if !hidden {
+        let spawn_check = |w: slint::Weak<AppWindow>| {
+            std::thread::spawn(move || {
+                if let Ok(Some(a)) = updater::check() {
+                    let v = a.version.clone();
+                    let _ = w.upgrade_in_event_loop(move |ui| {
+                        ui.set_update_version(v.into());
+                        ui.set_update_available(true);
+                    });
+                }
+                // Hand back the pages the network stack touched.
+                trim_memory();
+            });
+        };
+        spawn_check(ui.as_weak());
+
         let w = ui.as_weak();
-        std::thread::spawn(move || {
-            if let Ok(Some(a)) = updater::check_if_due() {
-                let v = a.version.clone();
-                let _ = w.upgrade_in_event_loop(move |ui| {
-                    ui.set_update_version(v.into());
-                    ui.set_update_available(true);
-                });
-            }
-            // The TLS stack and root certificates are only needed for this one request;
-            // give the pages back rather than holding them for the life of the window.
-            trim_memory();
-        });
+        let poll = Timer::default();
+        poll.start(
+            TimerMode::Repeated,
+            std::time::Duration::from_secs(5 * 60),
+            move || spawn_check(w.clone()),
+        );
+        std::mem::forget(poll);
     }
 
     // Explicit "Check Updates" click: always hits the network, unlike the throttled startup check.
@@ -771,6 +783,11 @@ fn minimize_self() {
     trim_memory();
 }
 
+/// Pin the UI scale to the system DPI once, at startup.
+///
+/// By default the window is laid out in logical pixels and re-scaled per monitor, so dragging it
+/// between screens with different scaling makes it visibly change size. Fixing the scale keeps the
+/// window exactly the same size on every screen.
 /// Release resident pages back to Windows. Anything still needed is faulted back in on demand;
 /// this is what keeps a background utility from sitting on tens of MB it is not using.
 fn trim_memory() {

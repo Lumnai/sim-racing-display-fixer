@@ -44,52 +44,6 @@ fn is_newer(candidate: &str, current: &str) -> bool {
     false
 }
 
-/// Where the last successful check timestamp is recorded.
-fn stamp_path() -> PathBuf {
-    let base = std::env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".into());
-    PathBuf::from(base)
-        .join("Lunis")
-        .join("DisplayFixer")
-        .join("lastcheck")
-}
-
-fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
-/// True when we have already checked within the last day. Skipping the check keeps the whole
-/// network stack out of the process on most launches, which is most of the app's memory.
-fn checked_recently() -> bool {
-    let Ok(text) = std::fs::read_to_string(stamp_path()) else {
-        return false;
-    };
-    let last: u64 = text.trim().parse().unwrap_or(0);
-    now_secs().saturating_sub(last) < 24 * 60 * 60
-}
-
-fn record_check() {
-    let p = stamp_path();
-    if let Some(dir) = p.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let _ = std::fs::write(p, now_secs().to_string());
-}
-
-/// The startup check, throttled to once a day.
-pub fn check_if_due() -> Result<Option<Available>, String> {
-    if checked_recently() {
-        return Ok(None);
-    }
-    let r = check();
-    if r.is_ok() {
-        record_check();
-    }
-    r
-}
-
 /// Ask GitHub whether a newer release exists. Returns None when already current.
 pub fn check() -> Result<Option<Available>, String> {
     let raw = http::get(LATEST_JSON, 256 * 1024)
@@ -132,7 +86,10 @@ pub fn download_and_run(avail: &Available) -> Result<(), String> {
     ));
     std::fs::write(&path, &bytes).map_err(|e| format!("could not save the update: {e}"))?;
 
+    // /S runs the installer silently; it relaunches the app itself when it finishes, so an update
+    // is a single click with no wizard to walk through.
     std::process::Command::new(&path)
+        .arg("/S")
         .spawn()
         .map_err(|e| format!("could not start the installer: {e}"))?;
     Ok(())
