@@ -7,7 +7,7 @@ Unicode true
 !include "FileFunc.nsh"
 
 !ifndef VERSION
-  !define VERSION "0.2.1"
+  !define VERSION "0.2.2"
 !endif
 
 Name "Sim Display Fixer"

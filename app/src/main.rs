@@ -144,6 +144,40 @@ fn run_gui(hidden: bool) {
         });
     }
 
+    // Explicit "Check Updates" click: always hits the network, unlike the throttled startup check.
+    {
+        let w = ui.as_weak();
+        ui.on_check_updates(move || {
+            let ui = w.unwrap();
+            ui.set_status_text("Checking for updates...".into());
+            ui.set_status_color(slint::Color::from_rgb_u8(165, 162, 160));
+            let w2 = ui.as_weak();
+            std::thread::spawn(move || {
+                let result = updater::check();
+                trim_memory();
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = w2.upgrade() else { return };
+                    match result {
+                        Ok(Some(a)) => {
+                            ui.set_update_version(a.version.clone().into());
+                            ui.set_update_available(true);
+                            ui.set_status_text(format!("Version {} is available.", a.version).into());
+                            ui.set_status_color(slint::Color::from_rgb_u8(253, 96, 16));
+                        }
+                        Ok(None) => {
+                            ui.set_status_text("You are on the latest version.".into());
+                            ui.set_status_color(slint::Color::from_rgb_u8(165, 162, 160));
+                        }
+                        Err(e) => {
+                            ui.set_status_text(e.into());
+                            ui.set_status_color(slint::Color::from_rgb_u8(253, 96, 16));
+                        }
+                    }
+                });
+            });
+        });
+    }
+
     // Download + verify + run the installer, also off the UI thread.
     {
         let w = ui.as_weak();

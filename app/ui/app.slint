@@ -263,6 +263,7 @@ export component AppWindow inherits Window {
     callback revert-settings();
     callback open-site();
     callback open-docs();
+    callback check-updates();
     callback install-update();
 
     title: "Sim Display Fixer";
@@ -446,10 +447,38 @@ export component AppWindow inherits Window {
                 }
                 Rectangle { horizontal-stretch: 1; }
                 Rectangle {
-                    width: 96px;
+                    width: 88px;
                     height: 18px;
                     Text {
-                        text: "Documentation";
+                        text: "Check Updates";
+                        color: upd.has-hover ? #fd6010 : #a5a2a0;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                        width: 100%;
+                    }
+                    upd := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.check-updates(); }
+                    }
+                }
+                Rectangle {
+                    width: 16px;
+                    height: 18px;
+                    Text {
+                        text: "|";
+                        color: #4f4d4b;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        width: 100%;
+                    }
+                }
+                Rectangle {
+                    width: 32px;
+                    height: 18px;
+                    Text {
+                        text: "Docs";
                         color: docs.has-hover ? #fd6010 : #a5a2a0;
                         font-size: 12px;
                         vertical-alignment: center;
