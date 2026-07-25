@@ -81,9 +81,15 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Sim Display Fixer ${{ github.ref_name }}
           body: |
-            Download the setup .exe below to install. The app updates itself from then on.
+            Keeps your sim rig's screens at the resolution and refresh rate you want, and puts them
+            back when a reboot or driver knocks them out of place.
 
-            Free for personal use. Commercial use requires a license: contact@lunis.live
+            **Download the setup `.exe` below and run it.** It installs for the current user, needs no
+            admin, and updates itself from then on.
+
+            Windows 10/11 64-bit. Any GPU. Native app, no runtime to install.
+
+            Free for personal use. Commercial use requires a license: **contact@lunis.live**
           files: |
             target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe
             target/packaged/SimDisplayFixer-${{ steps.ver.outputs.version }}-setup.exe.sig
