@@ -1,18 +1,31 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <!--
-    Per-monitor DPI awareness, so the window renders natively on every screen instead of being
-    bitmap-scaled (which looked soft on the monitor that did not match the system scaling).
+    SYSTEM DPI awareness, deliberately not PerMonitorV2.
 
-    Slint mishandles the resulting rescale - the window ends up the wrong size, see
-    slint-ui/slint#11073 (open, upstream) and rust-windowing/winit#3040. The app corrects for that
-    itself: it lets the rescale happen so the content is drawn sharply, then forces the window to
-    the size Windows says is correct. See pin_dpi_change_size() in main.rs.
+    Per-monitor awareness makes Windows send WM_DPICHANGED as the window crosses to a screen with
+    different scaling, and Slint mishandles the rescale: the window ends up the wrong size and the
+    content is drawn at the wrong scale inside it. That is slint-ui/slint#11073 (open, marked
+    upstream) and rust-windowing/winit#3040.
+
+    Two attempts to keep per-monitor awareness and correct for the bug both failed the same way,
+    and both are worth remembering so they are not tried a third time:
+      - v1.0.4 swallowed WM_DPICHANGED. The frame changed while the renderer stayed at the old
+        scale, so the content was drawn at the wrong size inside the window.
+      - v1.0.6 let the message through and then forced the window to the rect Windows supplies.
+        That corrects the frame but not Slint's internal size, so the layout desynced exactly as
+        in v1.0.4: content offset and clipped past the right edge.
+    The lesson is that the frame and the renderer have to be corrected together, through Slint's
+    own API, not behind its back at the Win32 level.
+
+    With system awareness the window is never asked to rescale. It keeps one size and Windows
+    composites it for the other screen, so dragging between monitors is stable. The cost is that
+    it looks slightly soft on a monitor whose scaling differs from the system setting, which is a
+    far better trade than the window resizing and rendering incorrectly.
   -->
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
-      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
-      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
     </windowsSettings>
   </application>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

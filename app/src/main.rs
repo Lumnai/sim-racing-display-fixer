@@ -87,7 +87,6 @@ impl Sel {
 fn run_gui(hidden: bool) {
     let ui = AppWindow::new().expect("failed to create window");
     std::thread::spawn(set_dark_titlebar);
-    std::thread::spawn(pin_dpi_change_size);
 
     // Started with Windows: stay out of the way entirely - no window, no taskbar button, just the
     // tray icon. Minimising was not enough, the window still appeared and took the taskbar slot.
@@ -872,94 +871,6 @@ fn any_self_hwnd() -> windows_sys::Win32::Foundation::HWND {
     FOUND.store(0, Ordering::SeqCst);
     unsafe { EnumWindows(Some(cb), 0) };
     FOUND.load(Ordering::SeqCst) as HWND
-}
-
-/// Correct the window size Slint picks when the window crosses to a screen with different scaling.
-///
-/// The app is per-monitor DPI aware so its content is redrawn natively on each screen rather than
-/// being bitmap-scaled by Windows (which looked blurry). The cost is WM_DPICHANGED, which Slint
-/// mishandles: the window ends up the wrong size (slint-ui/slint#11073, rust-windowing/winit#3040,
-/// both open upstream).
-///
-/// So let the message through - that is what triggers the sharp re-render - and then overrule the
-/// size afterwards with the rect Windows supplies in lParam, which is authoritative. The delayed
-/// second pass exists because the bad resize can also arrive after the message returns.
-///
-/// Deliberately not done by swallowing WM_DPICHANGED: that leaves the renderer at the old scale
-/// while the frame changes, and draws the content at the wrong size inside the window.
-fn pin_dpi_change_size() {
-    use std::sync::atomic::{AtomicI32, AtomicIsize, Ordering};
-    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CallWindowProcW, GetWindowLongPtrW, KillTimer, SetTimer, SetWindowLongPtrW, SetWindowPos,
-        GWLP_WNDPROC, SWP_NOACTIVATE, SWP_NOZORDER, WM_TIMER, WNDPROC,
-    };
-
-    const WM_DPICHANGED: u32 = 0x02E0;
-    const RETRY_TIMER: usize = 0x0D91;
-
-    static OLD_PROC: AtomicIsize = AtomicIsize::new(0);
-    static TARGET: [AtomicI32; 4] = [
-        AtomicI32::new(0),
-        AtomicI32::new(0),
-        AtomicI32::new(0),
-        AtomicI32::new(0),
-    ];
-
-    fn remember(r: &RECT) {
-        for (slot, v) in TARGET.iter().zip([r.left, r.top, r.right, r.bottom]) {
-            slot.store(v, Ordering::SeqCst);
-        }
-    }
-
-    fn apply(hwnd: HWND) {
-        let v: Vec<i32> = TARGET.iter().map(|s| s.load(Ordering::SeqCst)).collect();
-        let (w, h) = (v[2] - v[0], v[3] - v[1]);
-        if w <= 0 || h <= 0 {
-            return;
-        }
-        unsafe {
-            SetWindowPos(hwnd, std::ptr::null_mut(), v[0], v[1], w, h, SWP_NOZORDER | SWP_NOACTIVATE);
-        }
-    }
-
-    unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
-        let old: WNDPROC = std::mem::transmute(OLD_PROC.load(Ordering::SeqCst));
-        match msg {
-            WM_DPICHANGED => {
-                let result = CallWindowProcW(old, hwnd, msg, wp, lp);
-                remember(&*(lp as *const RECT));
-                apply(hwnd);
-                SetTimer(hwnd, RETRY_TIMER, 60, None);
-                result
-            }
-            WM_TIMER if wp == RETRY_TIMER => {
-                KillTimer(hwnd, RETRY_TIMER);
-                apply(hwnd);
-                0
-            }
-            _ => CallWindowProcW(old, hwnd, msg, wp, lp),
-        }
-    }
-
-    // The window does not exist yet when the UI thread starts, so wait for it.
-    for _ in 0..40 {
-        let hwnd = any_self_hwnd();
-        if !hwnd.is_null() {
-            unsafe {
-                // Record the original proc *before* swapping it in. The other order leaves a gap
-                // where a message could arrive with nothing to forward to.
-                let previous = GetWindowLongPtrW(hwnd, GWLP_WNDPROC);
-                if previous == 0 {
-                    return;
-                }
-                OLD_PROC.store(previous, Ordering::SeqCst);
-                SetWindowLongPtrW(hwnd, GWLP_WNDPROC, proc as *const () as isize);
-            }
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(150));
-    }
 }
 
 /// Release resident pages back to Windows. Anything still needed is faulted back in on demand;
