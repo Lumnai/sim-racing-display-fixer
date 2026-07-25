@@ -7,6 +7,7 @@ use std::process::Command;
 use std::rc::Rc;
 
 mod http;
+mod tray;
 mod updater;
 
 use lunis_display_core::{ccd, engine, modes, profile};
@@ -21,6 +22,9 @@ const SITE_URL: &str = "https://lunis.live";
 const DOCS_URL: &str = "https://github.com/Lumnai/sim-racing-display-fixer#readme";
 const CUSTOM_LABEL: &str = "Custom...";
 const REVERT_SECS: i32 = 12;
+
+/// Set when the user asks for the window (tray click), so the start-up hide loop stops fighting it.
+static WANTS_WINDOW: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -83,10 +87,34 @@ impl Sel {
 fn run_gui(hidden: bool) {
     let ui = AppWindow::new().expect("failed to create window");
     std::thread::spawn(set_dark_titlebar);
+
+    // Started with Windows: stay out of the way entirely - no window, no taskbar button, just the
+    // tray icon. Minimising was not enough, the window still appeared and took the taskbar slot.
     if hidden {
         std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(400));
-            minimize_self();
+            // Keep hiding for a few seconds: the event loop shows the window after start-up, so a
+            // single early hide gets undone. Stops as soon as the user asks for the window.
+            for _ in 0..60 {
+                if WANTS_WINDOW.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                hide_window_completely();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        });
+    }
+
+    // Tray icon: the only way back to the window when it starts hidden.
+    {
+        let (tx, rx) = std::sync::mpsc::channel::<tray::TrayEvent>();
+        tray::start(tx);
+        std::thread::spawn(move || {
+            while let Ok(ev) = rx.recv() {
+                match ev {
+                    tray::TrayEvent::Show => show_window(),
+                    tray::TrayEvent::Quit => quit_app(),
+                }
+            }
         });
     }
 
@@ -123,7 +151,7 @@ fn run_gui(hidden: bool) {
     ui.set_app_version(env!("CARGO_PKG_VERSION").into());
 
     // window chrome
-    ui.on_close_app(|| std::process::exit(0));
+    ui.on_close_app(|| quit_app());
     ui.on_minimize_app(minimize_self);
     ui.on_start_drag(drag_self);
     ui.on_open_site(|| open_url(SITE_URL));
@@ -783,6 +811,68 @@ fn minimize_self() {
     trim_memory();
 }
 
+/// Exit cleanly: drop the tray icon first so it does not linger as a ghost.
+fn quit_app() -> ! {
+    tray::remove();
+    std::process::exit(0)
+}
+
+/// Hide the window outright (no taskbar button). Returns false until the window exists.
+fn hide_window_completely() -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+    let hwnd = self_hwnd();
+    if hwnd.is_null() {
+        return false;
+    }
+    unsafe { ShowWindow(hwnd, SW_HIDE) };
+    trim_memory();
+    true
+}
+
+/// Bring the window back from hidden or minimised and focus it (used by the tray icon).
+fn show_window() {
+    WANTS_WINDOW.store(true, std::sync::atomic::Ordering::SeqCst);
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
+    };
+    // self_hwnd() only finds visible windows, so look for our hidden one too.
+    let hwnd = any_self_hwnd();
+    if !hwnd.is_null() {
+        unsafe {
+            ShowWindow(hwnd, SW_SHOW);
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+        }
+    }
+}
+
+/// Our top-level window whether or not it is currently visible.
+fn any_self_hwnd() -> windows_sys::Win32::Foundation::HWND {
+    use std::sync::atomic::{AtomicIsize, Ordering};
+    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::System::Threading::GetCurrentProcessId;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetWindowTextW, GetWindowThreadProcessId,
+    };
+    static FOUND: AtomicIsize = AtomicIsize::new(0);
+    unsafe extern "system" fn cb(hwnd: HWND, _l: LPARAM) -> i32 {
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        if pid == GetCurrentProcessId() {
+            // Skip the message-only tray window, which has no title.
+            let mut buf = [0u16; 64];
+            if GetWindowTextW(hwnd, buf.as_mut_ptr(), 64) > 0 {
+                FOUND.store(hwnd as isize, Ordering::SeqCst);
+                return 0;
+            }
+        }
+        1
+    }
+    FOUND.store(0, Ordering::SeqCst);
+    unsafe { EnumWindows(Some(cb), 0) };
+    FOUND.load(Ordering::SeqCst) as HWND
+}
+
 /// Pin the UI scale to the system DPI once, at startup.
 ///
 /// By default the window is laid out in logical pixels and re-scaled per monitor, so dragging it
@@ -839,8 +929,11 @@ fn set_dark_titlebar() {
     // work - the OS still clips the frame square, leaving hard edges behind our rounding.
     const DWMWA_WINDOW_CORNER_PREFERENCE: u32 = 33;
     const DWMWCP_ROUND: i32 = 2;
-    for _ in 0..30 {
-        let hwnd = self_hwnd();
+    // Apply repeatedly for a short while: a frameless window can be recreated or restyled during
+    // start-up, which drops these attributes, and re-applying is harmless.
+    let mut applied = 0;
+    for _ in 0..40 {
+        let hwnd = any_self_hwnd();
         if !hwnd.is_null() {
             unsafe {
                 let on: i32 = 1;
@@ -859,9 +952,12 @@ fn set_dark_titlebar() {
                     4,
                 );
             }
-            return;
+            applied += 1;
+            if applied >= 3 {
+                return;
+            }
         }
-        std::thread::sleep(std::time::Duration::from_millis(60));
+        std::thread::sleep(std::time::Duration::from_millis(150));
     }
 }
 
