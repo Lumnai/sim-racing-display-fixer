@@ -1,6 +1,6 @@
 [package]
 name = "sim-racing-display-fixer"
-version = "1.0.7"
+version = "1.0.8"
 edition = "2021"
 description = "Sim Racing Display Fixer - keep your screens at the resolution and refresh you want."
 

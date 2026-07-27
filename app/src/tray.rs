@@ -86,8 +86,17 @@ unsafe fn run() {
         return;
     }
 
-    // Icon 1 is the app icon embedded in the exe's resources.
-    let icon = LoadIconW(hinst, 1 as PCWSTR);
+    // Icon 1 is the app icon embedded in the exe's resources. Ask for the small-icon metric rather
+    // than using LoadIconW: that loads the 32x32 frame and leaves the shell to shrink it, whereas
+    // the .ico carries real 16x16 and 20x20 frames that render cleanly at tray size.
+    let icon = LoadImageW(
+        hinst,
+        1 as PCWSTR,
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        LR_DEFAULTCOLOR,
+    ) as HICON;
 
     let mut nid: NOTIFYICONDATAW = std::mem::zeroed();
     nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
