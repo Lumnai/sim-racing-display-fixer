@@ -7,7 +7,7 @@ Unicode true
 !include "FileFunc.nsh"
 
 !ifndef VERSION
-  !define VERSION "1.0.8"
+  !define VERSION "1.0.9"
 !endif
 
 Name "Sim Display Fixer"
@@ -42,17 +42,27 @@ VIAddVersionKey "LegalCopyright" "Copyright (c) 2026 Lunis"
 !insertmacro MUI_LANGUAGE "English"
 
 ; Install a TTF for the current user and tell Windows about it.
+;
+; SetOverwrite try rather than the default "on": once a font has been installed the Windows font
+; cache service keeps a handle on the file, so on an update the write fails and the default
+; behaviour is to stop with an "Error opening file for writing" prompt - which killed the whole
+; update. The file already on disk is the font we want, so skipping it is harmless; what matters is
+; that the registry value below points at it.
 !macro InstallFont FILE NAME
   SetOutPath "$LOCALAPPDATA\Microsoft\Windows\Fonts"
+  SetOverwrite try
   File "..\app\fonts\${FILE}"
+  SetOverwrite on
   WriteRegStr HKCU "Software\Microsoft\Windows NT\CurrentVersion\Fonts" "${NAME}" \
     "$LOCALAPPDATA\Microsoft\Windows\Fonts\${FILE}"
 !macroend
 
 Section "Install"
-  ; stop a running copy so the exe can be replaced
+  ; stop a running copy so the exe can be replaced, and give Windows a moment to release the file
+  ; handle - taskkill returns before the process has fully gone
   nsExec::Exec 'taskkill /F /IM sim-display-fixer.exe'
   Pop $0
+  Sleep 800
 
   SetOutPath "$INSTDIR"
   File "..\target\release\sim-display-fixer.exe"
